@@ -98,6 +98,11 @@ class SecurityEvaluator:
             self.admin_attrs
         )
 
+        # Authenticate baseline devices so active tokens are immediately available
+        self.gateway.authenticate_device(self.sensor_device)
+        self.gateway.authenticate_device(self.actuator_device)
+        self.gateway.authenticate_device(self.admin_device)
+
     # =========================================================================
     # Task Evaluation 1: Authentication Time
     # =========================================================================
@@ -282,6 +287,9 @@ class SecurityEvaluator:
         return not decision.allowed
 
     def _sim_tampered_token(self) -> bool:
+        if not self.sensor_device.active_token:
+            self.gateway.authenticate_device(self.sensor_device)
+
         # Device takes sensor token, changes role to GATEWAY_ADMIN without signature key
         tampered_token = SecurityToken(
             token_id=self.sensor_device.active_token.token_id,
