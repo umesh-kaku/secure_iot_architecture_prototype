@@ -180,7 +180,7 @@ class IoTRequestHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         content_len = int(self.headers.get("Content-Length", 0))
-        body_bytes = self.wfile.read(content_len) if content_len > 0 else b"{}"
+        body_bytes = self.rfile.read(content_len) if content_len > 0 else b"{}"
         try:
             payload = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
         except Exception:
