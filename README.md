@@ -63,6 +63,10 @@ A zero-trust IoT security prototype designed to prevent unauthorized, rogue, and
 
 | File | Description |
 |---|---|
+| [`server.py`](server.py) | Python HTTP server serving the Web GUI and REST API endpoints (zero dependencies) |
+| [`static/index.html`](static/index.html) | Clean, minimal HTML5 dashboard interface |
+| [`static/style.css`](static/style.css) | Minimal, accessible CSS styling |
+| [`static/app.js`](static/app.js) | Interactive JavaScript logic (handshake console, PEP requests, evaluation runner) |
 | [`models.py`](models.py) | Data models, enums (`DeviceRole`, `NetworkZone`, `ActionType`), tokens, and access result structures |
 | [`device.py`](device.py) | Simulated IoT devices (sensors, actuators, administrative nodes, rogue adversaries) |
 | [`auth_server.py`](auth_server.py) | Authentication authority handling challenge-response and signed capability tokens |
@@ -70,22 +74,40 @@ A zero-trust IoT security prototype designed to prevent unauthorized, rogue, and
 | [`revocation.py`](revocation.py) | Revocation Manager maintaining Device Revocation List (DRL) and Token Revocation List (TRL) |
 | [`gateway.py`](gateway.py) | IoT Security Gateway (PEP) coordinating auth, access control, and resource dispatch |
 | [`evaluator.py`](evaluator.py) | Benchmark engine measuring latency, prevention rate, and communication overhead |
-| [`demo.py`](demo.py) | End-to-end interactive/automated demonstration script |
+| [`demo.py`](demo.py) | Terminal-based automated demonstration script |
 | [`test_iot_security.py`](test_iot_security.py) | Unit and integration test suite (100% standard library) |
 
 ---
 
-## 3. Running the Project
+## 3. How to Run
 
 ### Requirements
-- Python 3.8+ (Zero third-party dependencies required; uses pure standard library cryptographic primitives).
+- Python 3.8+ (Zero external dependencies; uses Python's standard library).
 
-### Run the Demonstration
+### Option A: Launch the Web GUI Frontend (Recommended for Demos)
+Run the server:
+```bash
+python3 server.py
+```
+Open your browser at:
+```
+http://localhost:8000
+```
+
+The GUI Dashboard provides interactive tabs for:
+1. **Device Identities**: View provisioned nodes and register custom devices.
+2. **Authentication**: Step-by-step challenge-response handshake with simulated tampering options.
+3. **Access Control (RBAC/ABAC)**: Test requests against resources, simulate external WAN or outdated firmware, view PEP `ALLOW`/`DENIED` decisions.
+4. **Access Revocation**: Emergency kill-switch to blacklist compromised nodes in real time.
+5. **Attack Simulations**: 8 one-click threat scenarios verifying 100% defense.
+6. **Quantitative Evaluation**: Run the benchmark suite to see live latency, 100% prevention rate tables, and communication overhead.
+
+### Option B: Run the Terminal CLI Demonstration
 ```bash
 python3 demo.py
 ```
 
-### Run the Test Suite
+### Option C: Run the Test Suite
 ```bash
 python3 -m unittest test_iot_security.py
 ```

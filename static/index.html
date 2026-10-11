@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure IoT Architecture | Demonstration Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-container">
+      <div>
+        <h1>Secure IoT Architecture Dashboard</h1>
+        <p class="subtitle">Device Authentication, Dual RBAC/ABAC Access Control, & Instant Revocation</p>
+      </div>
+      <div class="header-status">
+        <span class="badge badge-success">Gateway PEP Online</span>
+        <button id="btn-refresh" class="btn btn-secondary btn-sm">Refresh State</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-devices">1. Device Identities</button>
+    <button class="tab-btn" data-tab="tab-auth">2. Authentication</button>
+    <button class="tab-btn" data-tab="tab-access">3. Access Control (RBAC/ABAC)</button>
+    <button class="tab-btn" data-tab="tab-revocation">4. Access Revocation</button>
+    <button class="tab-btn" data-tab="tab-attacks">5. Attack Simulations</button>
+    <button class="tab-btn" data-tab="tab-metrics">6. Quantitative Evaluation</button>
+  </nav>
+
+  <main class="main-content">
+    <!-- TAB 1: DEVICE IDENTITIES -->
+    <section id="tab-devices" class="tab-content active">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Registered IoT Devices</h2>
+            <span class="text-muted" id="device-count">0 devices</span>
+          </div>
+          <div class="table-container">
+            <table class="table" id="devices-table">
+              <thead>
+                <tr>
+                  <th>Device ID</th>
+                  <th>Role</th>
+                  <th>Zone</th>
+                  <th>Firmware</th>
+                  <th>Trust</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="devices-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Register New Device Identity</h2>
+          </div>
+          <form id="form-register-device">
+            <div class="form-group">
+              <label for="reg-device-id">Device ID:</label>
+              <input type="text" id="reg-device-id" placeholder="e.g. dev-pressure-01" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-role">Role (RBAC):</label>
+                <select id="reg-role">
+                  <option value="sensor">sensor</option>
+                  <option value="actuator">actuator</option>
+                  <option value="gateway_admin">gateway_admin</option>
+                  <option value="diagnostic">diagnostic</option>
+                  <option value="guest">guest</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reg-firmware">Firmware Version (ABAC):</label>
+                <input type="number" id="reg-firmware" step="0.1" value="2.0" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-zone">Network Zone (ABAC):</label>
+                <select id="reg-zone">
+                  <option value="internal_iot_lan">internal_iot_lan (Secure LAN)</option>
+                  <option value="secure_dmz">secure_dmz (DMZ)</option>
+                  <option value="external_wan">external_wan (Untrusted WAN)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reg-trust">Trust Score (0-100):</label>
+                <input type="number" id="reg-trust" min="0" max="100" value="90" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="reg-location">Physical Location:</label>
+              <input type="text" id="reg-location" value="Lab-Floor-1">
+            </div>
+            <button type="submit" class="btn btn-primary">Provision Cryptographic Identity</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: AUTHENTICATION -->
+    <section id="tab-auth" class="tab-content">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Challenge-Response Handshake Console</h2>
+          </div>
+          <p class="card-desc">Execute mutual cryptographic authentication between edge device and the Gateway.</p>
+          <form id="form-auth">
+            <div class="form-group">
+              <label for="auth-select-device">Select Device:</label>
+              <select id="auth-select-device"></select>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auth-tamper-sig"> Simulate Cryptographic Forgery (Tampered Signature)
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auth-tamper-nonce"> Simulate Nonce Replay (Reused Nonce)
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-run-auth">Perform Handshake</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Protocol Exchange Details</h2>
+            <span id="auth-badge-status" class="badge badge-neutral">Idle</span>
+          </div>
+          <div id="auth-flow-steps" class="flow-container">
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-info">
+                <strong>Phase 1: Device Auth Hello</strong>
+                <span id="auth-phase1" class="text-muted">Awaiting trigger...</span>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-info">
+                <strong>Phase 2: Gateway Challenge Nonce</strong>
+                <span id="auth-phase2" class="text-muted">Awaiting trigger...</span>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-info">
+                <strong>Phase 3: Client HMAC-SHA256 Response</strong>
+                <span id="auth-phase3" class="text-muted">Awaiting trigger...</span>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-info">
+                <strong>Phase 4: Capability Token Issuance</strong>
+                <span id="auth-phase4" class="text-muted">Awaiting trigger...</span>
+              </div>
+            </div>
+          </div>
+          <div id="auth-result-box" class="code-box">Ready. Select a device and perform handshake.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: ACCESS CONTROL (RBAC/ABAC) -->
+    <section id="tab-access" class="tab-content">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Policy Enforcement Point (PEP Request)</h2>
+          </div>
+          <form id="form-access-request">
+            <div class="form-group">
+              <label for="access-select-device">Requester Device:</label>
+              <select id="access-select-device"></select>
+            </div>
+            <div class="form-group">
+              <label for="access-select-resource">Target IoT Resource:</label>
+              <select id="access-select-resource"></select>
+            </div>
+            <div class="form-group">
+              <label for="access-select-action">Action:</label>
+              <select id="access-select-action">
+                <option value="read">read</option>
+                <option value="write">write</option>
+                <option value="execute">execute</option>
+                <option value="configure">configure</option>
+              </select>
+            </div>
+
+            <fieldset class="fieldset-context">
+              <legend>ABAC Dynamic Context Override (Simulate Threats):</legend>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="ctx-zone">Network Zone:</label>
+                  <select id="ctx-zone">
+                    <option value="">Use Device Actual Zone</option>
+                    <option value="internal_iot_lan">internal_iot_lan</option>
+                    <option value="external_wan">external_wan (Untrusted)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="ctx-firmware">Simulate Firmware:</label>
+                  <input type="number" id="ctx-firmware" step="0.1" placeholder="e.g. 1.0 (Outdated)">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="ctx-trust">Simulate Trust Score:</label>
+                <input type="number" id="ctx-trust" min="0" max="100" placeholder="e.g. 25 (Degraded)">
+              </div>
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="access-tamper-token"> Tamper Token Role to 'gateway_admin' (Escalation)
+                </label>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary">Submit Access Request</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>PDP Decision & Resource Outcome</h2>
+            <span id="access-badge-status" class="badge badge-neutral">No Request</span>
+          </div>
+          <div id="access-decision-result" class="decision-container">
+            <div class="decision-title" id="decision-title">Awaiting request...</div>
+            <p id="decision-reason" class="decision-reason text-muted">Submit an access request on the left to evaluate RBAC and ABAC policies.</p>
+          </div>
+
+          <div class="mt-3">
+            <h3>Resource Information & Policy Rules:</h3>
+            <div id="resource-info-box" class="code-box">Select a resource to inspect security rules.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: ACCESS REVOCATION -->
+    <section id="tab-revocation" class="tab-content">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Emergency Revocation Trigger</h2>
+          </div>
+          <p class="card-desc">Instantly blacklist a compromised node. All active tokens are terminated in 0-delay.</p>
+          <form id="form-revoke">
+            <div class="form-group">
+              <label for="revoke-select-device">Select Device to Revoke:</label>
+              <select id="revoke-select-device"></select>
+            </div>
+            <div class="form-group">
+              <label for="revoke-reason">Compromise Reason:</label>
+              <input type="text" id="revoke-reason" value="Malware signature detected by IDS" required>
+            </div>
+            <button type="submit" class="btn btn-danger">Execute Instant Device Revocation</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Device Revocation List (DRL / Blacklist)</h2>
+            <span id="revoked-count" class="badge badge-danger">0 Revoked</span>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Device ID</th>
+                  <th>Revocation Reason</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="revoked-tbody">
+                <tr><td colspan="3" class="text-center text-muted">No devices currently revoked.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: ATTACK SIMULATIONS -->
+    <section id="tab-attacks" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>One-Click Threat Vector Demonstrations</h2>
+          <span class="text-muted">Test individual attacks and observe gateway defense</span>
+        </div>
+        <p class="card-desc">Click any scenario below to verify that the Gateway blocks unauthorized or compromised access.</p>
+        
+        <div class="attacks-grid">
+          <button class="btn btn-outline" data-attack="rogue">
+            <strong>1. Rogue Device Handshake</strong>
+            <span>Unregistered device claims identity</span>
+          </button>
+          <button class="btn btn-outline" data-attack="forged_sig">
+            <strong>2. Forged HMAC Signature</strong>
+            <span>Attacker provides counterfeit signature</span>
+          </button>
+          <button class="btn btn-outline" data-attack="replay">
+            <strong>3. Nonce Replay Attack</strong>
+            <span>Re-submitting previously consumed nonce</span>
+          </button>
+          <button class="btn btn-outline" data-attack="tamper_token">
+            <strong>4. Tampered Token (Role Escalation)</strong>
+            <span>Modifying token claims without server key</span>
+          </button>
+          <button class="btn btn-outline" data-attack="rbac_escalation">
+            <strong>5. RBAC: Sensor Trips Power Grid</strong>
+            <span>Valid sensor executing critical switch</span>
+          </button>
+          <button class="btn btn-outline" data-attack="abac_zone">
+            <strong>6. ABAC: Critical Access from External WAN</strong>
+            <span>Admin connecting from untrusted network</span>
+          </button>
+          <button class="btn btn-outline" data-attack="abac_firmware">
+            <strong>7. ABAC: Outdated Firmware Vulnerability</strong>
+            <span>Firmware below minimum required threshold</span>
+          </button>
+          <button class="btn btn-outline" data-attack="revocation">
+            <strong>8. Compromised & Revoked Device Access</strong>
+            <span>Attempting access after node blacklisting</span>
+          </button>
+        </div>
+
+        <div id="attack-output-card" class="mt-4" style="display: none;">
+          <div class="card-header">
+            <h3 id="attack-title">Simulation Result</h3>
+            <span id="attack-badge" class="badge"></span>
+          </div>
+          <div id="attack-details" class="code-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: QUANTITATIVE EVALUATION -->
+    <section id="tab-metrics" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>Empirical Evaluation Benchmark (The 3 Core Tasks)</h2>
+          <button id="btn-run-evaluation" class="btn btn-primary">Run Benchmark Suite (500 Trials)</button>
+        </div>
+        <p class="card-desc">Measures Authentication Time, Unauthorized-Access Prevention Rate, and Communication Overhead.</p>
+
+        <div id="eval-loading" class="text-center p-3 text-muted" style="display: none;">
+          Running benchmark iterations... Please wait.
+        </div>
+
+        <div id="eval-results-container" style="display: none;">
+          <!-- 1. AUTHENTICATION TIME -->
+          <div class="metrics-section">
+            <h3>Task 1: Authentication Time (Latency & Throughput)</h3>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span class="metric-label">Mean Latency</span>
+                <span class="metric-val" id="metric-mean-time">-- ms</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Median Latency</span>
+                <span class="metric-val" id="metric-median-time">-- ms</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">95th Percentile (P95)</span>
+                <span class="metric-val" id="metric-p95-time">-- ms</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Throughput</span>
+                <span class="metric-val" id="metric-throughput">-- handshakes/s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. PREVENTION RATE -->
+          <div class="metrics-section mt-4">
+            <div class="card-header">
+              <h3>Task 2: Unauthorized-Access Prevention Rate</h3>
+              <span class="badge badge-success" id="metric-prevention-badge">100% Blocked</span>
+            </div>
+            <div class="table-container">
+              <table class="table" id="prevention-table">
+                <thead>
+                  <tr>
+                    <th>Threat Scenario</th>
+                    <th>Trials</th>
+                    <th>Blocked Attempts</th>
+                    <th>Breaches</th>
+                    <th>Prevention Rate</th>
+                  </tr>
+                </thead>
+                <tbody id="prevention-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. COMMUNICATION OVERHEAD -->
+          <div class="metrics-section mt-4">
+            <h3>Task 3: Communication Overhead (Byte Footprint)</h3>
+            <div class="grid grid-2">
+              <div class="card" style="border: 1px solid var(--border-color);">
+                <h4>Handshake Payload Breakdown:</h4>
+                <ul class="overhead-list">
+                  <li>Phase 1 (Device Hello): <strong id="oh-p1">--</strong> bytes</li>
+                  <li>Phase 2 (Gateway Challenge): <strong id="oh-p2">--</strong> bytes</li>
+                  <li>Phase 3 (Client Response): <strong id="oh-p3">--</strong> bytes</li>
+                  <li>Phase 4 (Signed Token): <strong id="oh-p4">--</strong> bytes</li>
+                  <li class="total-row">Total Handshake Overhead: <strong id="oh-hs-total">--</strong> bytes</li>
+                </ul>
+              </div>
+              <div class="card" style="border: 1px solid var(--border-color);">
+                <h4>Resource Access & Security Cost:</h4>
+                <ul class="overhead-list">
+                  <li>Secured Access Request (with token): <strong id="oh-acc-req">--</strong> bytes</li>
+                  <li>Gateway Signed Response: <strong id="oh-acc-res">--</strong> bytes</li>
+                  <li>Insecure Baseline Plaintext: <strong id="oh-base">--</strong> bytes</li>
+                  <li class="total-row">Net Security Premium: <strong id="oh-premium">--</strong> bytes (<span id="oh-multiplier">--</span>x)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE AUDIT LOGS -->
+    <section class="card mt-4">
+      <div class="card-header">
+        <h2>Gateway Security Audit Log (PEP Operations)</h2>
+        <button id="btn-clear-logs" class="btn btn-secondary btn-sm">Clear Display</button>
+      </div>
+      <div id="audit-log-box" class="audit-log-container">
+        <!-- Log entries -->
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Secure IoT Architecture Prototype &bull; Zero-Trust Device Authentication, RBAC, ABAC, and Real-time Revocation</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
