@@ -466,6 +466,47 @@ body {
 .mt-4 { margin-top: 1.5rem; }
 .p-3 { padding: 1rem; }
 
+/* Custom Saved Attacks */
+.saved-attacks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.saved-attack-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid var(--border-color);
+  padding: 0.65rem 0.85rem;
+  border-radius: 4px;
+}
+
+.saved-attack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.saved-attack-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.saved-attack-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.saved-attack-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
 /* Footer */
 .app-footer {
   text-align: center;

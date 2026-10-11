@@ -337,6 +337,110 @@
           </button>
         </div>
 
+        <!-- CUSTOM ATTACK STUDIO -->
+        <div class="mt-4 grid grid-2">
+          <div class="card" style="border: 1px solid var(--border-color); background: #fafafa;">
+            <div class="card-header">
+              <h3>Custom Attack Studio (Design & Configure)</h3>
+              <span class="badge badge-neutral">Interactive Builder</span>
+            </div>
+            <p class="card-desc">Design a custom threat vector by combining arbitrary roles, targets, attributes, or cryptoviolations.</p>
+            <form id="form-custom-attack">
+              <div class="form-group">
+                <label for="custom-attack-name">Attack Name:</label>
+                <input type="text" id="custom-attack-name" placeholder="e.g. Infiltration of Power Grid via Spoofed Zone" required>
+              </div>
+
+              <div class="form-group">
+                <label for="custom-attack-strategy">Attack Strategy / Failure Mode:</label>
+                <select id="custom-attack-strategy">
+                  <option value="policy_violation">Policy Violation (RBAC / ABAC Context Mismatch)</option>
+                  <option value="unregistered_device">Rogue / Unregistered Device Handshake</option>
+                  <option value="forged_signature">Counterfeit Cryptographic Signature</option>
+                  <option value="replay_nonce">Nonce Interception & Replay Attack</option>
+                  <option value="tampered_token">Tampered Token Claims (Role Elevation)</option>
+                </select>
+              </div>
+
+              <div id="custom-attack-options">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="custom-attack-device">Attacking Device:</label>
+                    <select id="custom-attack-device">
+                      <option value="dev-sensor-01">dev-sensor-01 (sensor)</option>
+                      <option value="dev-actuator-01">dev-actuator-01 (actuator)</option>
+                      <option value="dev-admin-01">dev-admin-01 (gateway_admin)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="custom-attack-resource">Target IoT Resource:</label>
+                    <select id="custom-attack-resource">
+                      <option value="res:critical:power_grid_switch">Power Grid Switch (Critical)</option>
+                      <option value="res:actuator:water_pump">Water Pump Actuator (Medium)</option>
+                      <option value="res:telemetry:sensor_data">Sensor Telemetry (Low)</option>
+                      <option value="res:system:firmware_update">OTA Firmware Service (Critical)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="custom-attack-action">Requested Action:</label>
+                    <select id="custom-attack-action">
+                      <option value="execute">execute</option>
+                      <option value="configure">configure</option>
+                      <option value="write">write</option>
+                      <option value="read">read</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="custom-attack-zone">Spoofed Network Zone (ABAC):</label>
+                    <select id="custom-attack-zone">
+                      <option value="">Keep Device's Default Zone</option>
+                      <option value="external_wan">external_wan (Untrusted Internet)</option>
+                      <option value="secure_dmz">secure_dmz (DMZ)</option>
+                      <option value="internal_iot_lan">internal_iot_lan (Secure LAN)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="custom-attack-firmware">Simulate Firmware Version:</label>
+                    <input type="number" step="0.1" id="custom-attack-firmware" placeholder="e.g. 1.0 (Outdated)">
+                  </div>
+                  <div class="form-group">
+                    <label for="custom-attack-trust">Simulate Trust Score:</label>
+                    <input type="number" min="0" max="100" id="custom-attack-trust" placeholder="e.g. 25 (Degraded)">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="custom-attack-revoke"> Simulate Compromised Device (Trigger Revocation before Request)
+                  </label>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary" id="btn-run-custom-attack" style="flex: 1;">Run Custom Attack</button>
+                <button type="button" class="btn btn-secondary" id="btn-save-custom-attack" style="flex: 1;">Save Attack to Library</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card" style="border: 1px solid var(--border-color); background: #fafafa;">
+            <div class="card-header">
+              <h3>Saved Custom Attacks Library</h3>
+              <span id="saved-attacks-count" class="badge badge-neutral">0 Saved</span>
+            </div>
+            <p class="card-desc">Saved threat scenarios are stored here for one-click re-execution during your demonstration.</p>
+            <div id="saved-attacks-list" class="saved-attacks-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
         <div id="attack-output-card" class="mt-4" style="display: none;">
           <div class="card-header">
             <h3 id="attack-title">Simulation Result</h3>

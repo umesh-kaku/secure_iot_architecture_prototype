@@ -29,7 +29,25 @@ class IoTState:
         self.gateway = IoTGateway(token_ttl_seconds=300)
         self.devices: Dict[str, IoTDevice] = {}
         self.audit_logs: List[Dict[str, Any]] = []
+        self.custom_attacks: Dict[str, Dict[str, Any]] = {}
         self._seed_default_devices()
+        self._seed_default_custom_attacks()
+
+    def _seed_default_custom_attacks(self):
+        sample_id = "atk-sample-01"
+        self.custom_attacks[sample_id] = {
+            "id": sample_id,
+            "name": "Substation Relay Breach from External WAN",
+            "strategy": "policy_violation",
+            "device_id": "dev-sensor-01",
+            "resource_id": "res:critical:power_grid_switch",
+            "action": "execute",
+            "network_zone": "external_wan",
+            "firmware_version": 1.2,
+            "trust_score": 40,
+            "simulate_revocation": False,
+            "created_at": time.strftime("%H:%M:%S")
+        }
 
     def log(self, category: str, message: str, status: str = "INFO", details: Any = None):
         entry = {
@@ -124,6 +142,7 @@ class IoTState:
             "devices": dev_list,
             "resources": res_list,
             "revoked_devices": revoked_details,
+            "custom_attacks": list(self.custom_attacks.values()),
             "audit_logs": self.audit_logs
         }
 
@@ -198,6 +217,12 @@ class IoTRequestHandler(BaseHTTPRequestHandler):
             self._handle_simulate(payload)
         elif path == "/api/evaluate":
             self._handle_evaluate(payload)
+        elif path == "/api/attacks/custom/run":
+            self._handle_custom_attack_run(payload)
+        elif path == "/api/attacks/custom/save":
+            self._handle_custom_attack_save(payload)
+        elif path == "/api/attacks/custom/delete":
+            self._handle_custom_attack_delete(payload)
         else:
             self.send_error(404, "Unknown endpoint")
 
@@ -405,6 +430,35 @@ class IoTRequestHandler(BaseHTTPRequestHandler):
         res = evaluator.run_all_evaluations()
         STATE.log("EVALUATE", f"Completed full quantitative evaluation benchmark ({trials} trials).", status="SUCCESS")
         self._send_json({"success": True, "data": res})
+
+    def _handle_custom_attack_run(self, payload: Dict[str, Any]):
+        evaluator = SecurityEvaluator(iterations=5)
+        res = evaluator.simulate_custom_attack(payload)
+        status_log = "SUCCESS" if res["blocked"] else "BREACH"
+        STATE.log(
+            "CUSTOM_ATTACK",
+            f"Executed Custom Attack '{res['name']}': {'BLOCKED (Defense 100%)' if res['blocked'] else 'BREACH'} ({res['decision']})",
+            status=status_log,
+            details=res["reason"]
+        )
+        self._send_json({"success": True, "result": res})
+
+    def _handle_custom_attack_save(self, payload: Dict[str, Any]):
+        attack_id = payload.get("id") or f"atk-{secrets.token_hex(4)}"
+        name = payload.get("name", "Custom Attack").strip() or "Custom Attack"
+        payload["id"] = attack_id
+        payload["name"] = name
+        payload["created_at"] = time.strftime("%H:%M:%S")
+        STATE.custom_attacks[attack_id] = payload
+        STATE.log("ATTACK_SAVED", f"Custom attack '{name}' saved to library.", status="INFO")
+        self._send_json({"success": True, "attack": payload, "custom_attacks": list(STATE.custom_attacks.values())})
+
+    def _handle_custom_attack_delete(self, payload: Dict[str, Any]):
+        attack_id = payload.get("id")
+        if attack_id in STATE.custom_attacks:
+            deleted = STATE.custom_attacks.pop(attack_id)
+            STATE.log("ATTACK_DELETED", f"Removed custom attack '{deleted.get('name')}'.", status="INFO")
+        self._send_json({"success": True, "custom_attacks": list(STATE.custom_attacks.values())})
 
     def log_message(self, format, *args):
         # Silence default terminal request spam

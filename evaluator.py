@@ -471,3 +471,161 @@ class SecurityEvaluator:
             "unauthorized_access_prevention": prevention_metrics,
             "communication_overhead": overhead_metrics
         }
+
+    # =========================================================================
+    # Custom Attack Simulation Runner
+    # =========================================================================
+    def simulate_custom_attack(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Executes a user-defined custom attack vector and returns comprehensive PEP decision.
+        """
+        t0 = time.perf_counter()
+        name = config.get("name", "Custom Attack Scenario").strip() or "Custom Attack"
+        strategy = config.get("strategy", "policy_violation")
+
+        # 1. Unregistered Device Attack
+        if strategy == "unregistered_device":
+            fake_id = config.get("device_id") or f"rogue-{secrets.token_hex(4)}"
+            rogue = IoTDevice(fake_id, secrets.token_bytes(32), DeviceRole.SENSOR, self.sensor_attrs)
+            ok, _, msg, _ = self.gateway.authenticate_device(rogue)
+            t1 = time.perf_counter()
+            return {
+                "name": name,
+                "strategy": strategy,
+                "blocked": not ok,
+                "decision": "BLOCKED" if not ok else "BREACH",
+                "reason": f"Handshake {msg}",
+                "description": f"Unregistered device '{fake_id}' attempted mutual handshake.",
+                "outcome": f"Gateway registry check: {msg}",
+                "execution_time_ms": (t1 - t0) * 1000.0
+            }
+
+        # 2. Forged HMAC Signature Attack
+        if strategy == "forged_signature":
+            dev = self.sensor_device
+            ok, _, msg, _ = self.gateway.authenticate_device(dev, tamper_sig="counterfeit_sig_" + secrets.token_hex(16))
+            t1 = time.perf_counter()
+            return {
+                "name": name,
+                "strategy": strategy,
+                "blocked": not ok,
+                "decision": "BLOCKED" if not ok else "BREACH",
+                "reason": f"Handshake {msg}",
+                "description": f"Device '{dev.device_id}' submitted a counterfeit HMAC-SHA256 signature.",
+                "outcome": f"Cryptographic integrity check: {msg}",
+                "execution_time_ms": (t1 - t0) * 1000.0
+            }
+
+        # 3. Nonce Replay Attack
+        if strategy == "replay_nonce":
+            dev = self.sensor_device
+            _, nonce, _ = self.gateway.auth_server.generate_challenge(dev.device_id)
+            ts = time.time()
+            sig = dev.compute_challenge_response(nonce, ts)
+            self.gateway.auth_server.verify_challenge_and_issue_token(dev.device_id, nonce, ts, sig)
+            rep_ok, _, rep_msg = self.gateway.auth_server.verify_challenge_and_issue_token(dev.device_id, nonce, ts, sig)
+            t1 = time.perf_counter()
+            return {
+                "name": name,
+                "strategy": strategy,
+                "blocked": not rep_ok,
+                "decision": "BLOCKED" if not rep_ok else "BREACH",
+                "reason": f"Nonce check {rep_msg}",
+                "description": f"Attacker captured nonce '{nonce[:8]}...' and attempted a replay attack.",
+                "outcome": f"Single-use nonce expiration check: {rep_msg}",
+                "execution_time_ms": (t1 - t0) * 1000.0
+            }
+
+        # 4. Tampered Token (Role Elevation) Attack
+        if strategy == "tampered_token":
+            dev = self.sensor_device
+            if not dev.active_token:
+                self.gateway.authenticate_device(dev)
+            elevated_role = config.get("tampered_role", "gateway_admin")
+            try:
+                target_role = DeviceRole(elevated_role)
+            except Exception:
+                target_role = DeviceRole.GATEWAY_ADMIN
+
+            tampered_token = SecurityToken(
+                token_id=dev.active_token.token_id,
+                device_id=dev.device_id,
+                role=target_role,
+                attributes=dev.active_token.attributes,
+                issued_at=dev.active_token.issued_at,
+                expires_at=dev.active_token.expires_at,
+                signature=dev.active_token.signature  # Original signature fails verification
+            )
+            target_res = config.get("resource_id", "res:critical:power_grid_switch")
+            target_act_str = config.get("action", "execute")
+            try:
+                target_act = ActionType(target_act_str)
+            except Exception:
+                target_act = ActionType.EXECUTE
+
+            req = {"device_id": dev.device_id, "resource_id": target_res, "action": target_act, "token": tampered_token}
+            dec, _, _ = self.gateway.process_access_request(req)
+            t1 = time.perf_counter()
+            return {
+                "name": name,
+                "strategy": strategy,
+                "blocked": not dec.allowed,
+                "decision": dec.decision.value,
+                "reason": dec.reason,
+                "description": f"Attacker modified token role to '{target_role.value}' for '{target_res}'.",
+                "outcome": f"Token cryptographic signature check: {dec.decision.value}",
+                "execution_time_ms": (t1 - t0) * 1000.0
+            }
+
+        # 5. Policy Violation (RBAC / ABAC Context Mismatch / Revocation)
+        dev_id = config.get("device_id", "dev-sensor-01")
+        if dev_id == "dev-actuator-01":
+            dev = self.actuator_device
+        elif dev_id == "dev-admin-01":
+            dev = self.admin_device
+        else:
+            dev = self.sensor_device
+
+        if not dev.active_token:
+            self.gateway.authenticate_device(dev)
+
+        # Context overrides
+        context_override = {}
+        if config.get("network_zone"):
+            context_override["network_zone"] = config["network_zone"]
+        if config.get("firmware_version") is not None and config.get("firmware_version") != "":
+            try:
+                context_override["firmware_version"] = float(config["firmware_version"])
+            except ValueError:
+                pass
+        if config.get("trust_score") is not None and config.get("trust_score") != "":
+            try:
+                context_override["trust_score"] = int(config["trust_score"])
+            except ValueError:
+                pass
+
+        # Simulate revocation if requested
+        if config.get("simulate_revocation"):
+            self.gateway.revoke_device(dev.device_id, "Compromise flagged in custom attack simulation")
+
+        target_res = config.get("resource_id", "res:critical:power_grid_switch")
+        target_act_str = config.get("action", "execute")
+        try:
+            target_act = ActionType(target_act_str)
+        except Exception:
+            target_act = ActionType.EXECUTE
+
+        req = dev.create_access_request(target_res, target_act, context_override=context_override if context_override else None)
+        dec, _, _ = self.gateway.process_access_request(req)
+        t1 = time.perf_counter()
+
+        return {
+            "name": name,
+            "strategy": strategy,
+            "blocked": not dec.allowed,
+            "decision": dec.decision.value,
+            "reason": dec.reason,
+            "description": f"Device '{dev.device_id}' ({dev.role.value}) requested '{target_act.value}' on '{target_res}'. Overrides: {context_override or 'None'}.",
+            "outcome": f"Policy Decision Point (PDP): {dec.decision.value}",
+            "execution_time_ms": (t1 - t0) * 1000.0
+        }

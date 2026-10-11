@@ -99,7 +99,10 @@ The GUI Dashboard provides interactive tabs for:
 2. **Authentication**: Step-by-step challenge-response handshake with simulated tampering options.
 3. **Access Control (RBAC/ABAC)**: Test requests against resources, simulate external WAN or outdated firmware, view PEP `ALLOW`/`DENIED` decisions.
 4. **Access Revocation**: Emergency kill-switch to blacklist compromised nodes in real time.
-5. **Attack Simulations**: 8 one-click threat scenarios verifying 100% defense.
+5. **Attack Simulations**: 
+   - 8 one-click built-in threat scenarios verifying 100% defense.
+   - **Custom Attack Studio**: Design, name, and execute arbitrary threat scenarios combining devices, resources, actions, firmware, network zones, trust scores, and cryptographic violations.
+   - **Saved Attacks Library**: Save custom threat scenarios for quick one-click re-execution.
 6. **Quantitative Evaluation**: Run the benchmark suite to see live latency, 100% prevention rate tables, and communication overhead.
 
 ### Option B: Run the Terminal CLI Demonstration

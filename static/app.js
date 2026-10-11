@@ -4,6 +4,7 @@ let globalState = {
   devices: [],
   resources: [],
   revoked_devices: [],
+  custom_attacks: [],
   audit_logs: []
 };
 
@@ -55,6 +56,7 @@ async function fetchState() {
     renderDevices(data.devices);
     renderSelectDropdowns(data.devices, data.resources);
     renderRevocationList(data.revoked_devices);
+    renderSavedAttacks(data.custom_attacks || []);
     renderAuditLogs(data.audit_logs);
   } catch (err) {
     console.error("Error fetching state:", err);
@@ -127,11 +129,26 @@ function renderSelectDropdowns(devices, resources) {
   if (prevAccessDev) accessDevSelect.value = prevAccessDev;
   if (prevRevoke) revokeSelect.value = prevRevoke;
 
+  // Custom Attack Device Select
+  const customDevSelect = document.getElementById("custom-attack-device");
+  if (customDevSelect) {
+    const prevCustomDev = customDevSelect.value;
+    customDevSelect.innerHTML = "";
+    devices.forEach(dev => {
+      customDevSelect.add(new Option(`${dev.device_id} (${dev.role})`, dev.device_id));
+    });
+    if (prevCustomDev) customDevSelect.value = prevCustomDev;
+  }
+
   // Resources
   accessResSelect.innerHTML = "";
+  const customResSelect = document.getElementById("custom-attack-resource");
+  if (customResSelect) customResSelect.innerHTML = "";
+
   resources.forEach(r => {
     const opt = new Option(`${r.name} (${r.resource_id})`, r.resource_id);
     accessResSelect.add(opt);
+    if (customResSelect) customResSelect.add(new Option(`${r.name} (${r.resource_id})`, r.resource_id));
   });
   if (prevRes) accessResSelect.value = prevRes;
 
@@ -384,6 +401,7 @@ window.quickRevoke = async function(devId) {
 
 // --- Attack Simulation Buttons ---
 function initAttackButtons() {
+  // 1. Existing 8 Built-in Attack Buttons (Preserved Intact)
   const btns = document.querySelectorAll("[data-attack]");
   btns.forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -396,27 +414,177 @@ function initAttackButtons() {
       const data = await res.json();
       if (!data.success) return;
 
-      const r = data.result;
-      const card = document.getElementById("attack-output-card");
-      const title = document.getElementById("attack-title");
-      const badge = document.getElementById("attack-badge");
-      const details = document.getElementById("attack-details");
-
-      card.style.display = "block";
-      title.textContent = r.name;
-      badge.className = r.blocked ? "badge badge-success" : "badge badge-danger";
-      badge.textContent = r.blocked ? "DEFENSE SUCCESS (100% Blocked)" : "BREACH";
-
-      details.textContent = 
-`Threat Scenario: ${r.name}
-Description    : ${r.description}
-Gateway Defense: ${r.outcome}
-Security Status: ${r.blocked ? "BLOCKED AT PEP GATEWAY (Zero Unauthorized Access)" : "BREACH"}`;
-
+      displayAttackResult(data.result);
       fetchState();
     });
   });
+
+  // 2. Custom Attack Strategy Switcher (Toggle contextual fields based on strategy)
+  const stratSelect = document.getElementById("custom-attack-strategy");
+  if (stratSelect) {
+    stratSelect.addEventListener("change", () => {
+      const val = stratSelect.value;
+      const opts = document.getElementById("custom-attack-options");
+      // Keep enabled or customize if needed
+      if (opts) opts.style.opacity = "1";
+    });
+  }
+
+  // 3. Run Custom Attack Form Submit
+  const customForm = document.getElementById("form-custom-attack");
+  if (customForm) {
+    customForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = getCustomAttackPayloadFromForm();
+
+      const res = await fetch("/api/attacks/custom/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert("Failed to run custom attack: " + (data.message || "Unknown error"));
+        return;
+      }
+
+      displayAttackResult(data.result);
+      fetchState();
+    });
+  }
+
+  // 4. Save Custom Attack Button Click
+  const btnSave = document.getElementById("btn-save-custom-attack");
+  if (btnSave) {
+    btnSave.addEventListener("click", async () => {
+      const nameInput = document.getElementById("custom-attack-name");
+      if (!nameInput.value.trim()) {
+        alert("Please enter a name for the custom attack before saving.");
+        nameInput.focus();
+        return;
+      }
+
+      const payload = getCustomAttackPayloadFromForm();
+      const res = await fetch("/api/attacks/custom/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Custom Attack '${payload.name}' saved to your library!`);
+        renderSavedAttacks(data.custom_attacks);
+        fetchState();
+      } else {
+        alert("Failed to save attack: " + (data.message || "Unknown error"));
+      }
+    });
+  }
 }
+
+// Helper to gather form inputs for custom attacks
+function getCustomAttackPayloadFromForm() {
+  const fwVal = document.getElementById("custom-attack-firmware").value;
+  const trustVal = document.getElementById("custom-attack-trust").value;
+
+  return {
+    name: document.getElementById("custom-attack-name").value.trim() || "Custom Threat Vector",
+    strategy: document.getElementById("custom-attack-strategy").value,
+    device_id: document.getElementById("custom-attack-device").value,
+    resource_id: document.getElementById("custom-attack-resource").value,
+    action: document.getElementById("custom-attack-action").value,
+    network_zone: document.getElementById("custom-attack-zone").value || null,
+    firmware_version: fwVal !== "" ? parseFloat(fwVal) : null,
+    trust_score: trustVal !== "" ? parseInt(trustVal, 10) : null,
+    simulate_revocation: document.getElementById("custom-attack-revoke").checked
+  };
+}
+
+// Display simulation result card
+function displayAttackResult(r) {
+  const card = document.getElementById("attack-output-card");
+  const title = document.getElementById("attack-title");
+  const badge = document.getElementById("attack-badge");
+  const details = document.getElementById("attack-details");
+
+  card.style.display = "block";
+  title.textContent = r.name;
+  badge.className = r.blocked ? "badge badge-success" : "badge badge-danger";
+  badge.textContent = r.blocked ? "DEFENSE SUCCESS (100% Blocked)" : "BREACH";
+
+  const latencyStr = r.execution_time_ms !== undefined ? `\nExecution Latency : ${r.execution_time_ms.toFixed(3)} ms` : "";
+
+  details.textContent = 
+`Threat Scenario  : ${r.name}
+Strategy / Type  : ${r.strategy || "Standard"}
+Description      : ${r.description}
+Gateway Defense  : ${r.outcome}
+Decision Code    : ${r.decision || (r.blocked ? "BLOCKED" : "BREACH")}
+Enforcement Rule : ${r.reason || "Policy enforced"}${latencyStr}
+Security Status  : ${r.blocked ? "BLOCKED AT PEP GATEWAY (Zero Unauthorized Access)" : "BREACH"}`;
+
+  // Scroll to output
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// Render Saved Attacks Library
+function renderSavedAttacks(attacks) {
+  const list = document.getElementById("saved-attacks-list");
+  const countBadge = document.getElementById("saved-attacks-count");
+  if (!list || !countBadge) return;
+
+  countBadge.textContent = `${attacks.length} Saved`;
+
+  if (attacks.length === 0) {
+    list.innerHTML = `<div class="text-muted text-center p-3">No custom attacks saved yet. Design and save one on the left!</div>`;
+    return;
+  }
+
+  list.innerHTML = attacks.map(atk => `
+    <div class="saved-attack-item">
+      <div class="saved-attack-info">
+        <span class="saved-attack-title">${escapeHtml(atk.name)}</span>
+        <span class="saved-attack-meta">Strategy: <code>${escapeHtml(atk.strategy)}</code> &bull; Target: <code>${escapeHtml(atk.resource_id.split(':').pop())}</code></span>
+      </div>
+      <div class="saved-attack-actions">
+        <button class="btn btn-primary btn-sm" onclick="runSavedAttack('${escapeHtml(atk.id)}')">Run Attack</button>
+        <button class="btn btn-secondary btn-sm" onclick="deleteSavedAttack('${escapeHtml(atk.id)}')">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// Global actions for saved attack buttons
+window.runSavedAttack = async function(attackId) {
+  const atk = (globalState.custom_attacks || []).find(a => a.id === attackId);
+  if (!atk) return;
+
+  const res = await fetch("/api/attacks/custom/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(atk)
+  });
+  const data = await res.json();
+  if (data.success) {
+    displayAttackResult(data.result);
+    fetchState();
+  }
+};
+
+window.deleteSavedAttack = async function(attackId) {
+  if (!confirm("Are you sure you want to remove this saved attack scenario?")) return;
+
+  const res = await fetch("/api/attacks/custom/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: attackId })
+  });
+  const data = await res.json();
+  if (data.success) {
+    renderSavedAttacks(data.custom_attacks || []);
+    fetchState();
+  }
+};
 
 // --- Benchmark Evaluator ---
 function initEvaluationButton() {
