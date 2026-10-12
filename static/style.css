@@ -28,6 +28,9 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header */
@@ -103,6 +106,7 @@ body {
   max-width: 1200px;
   margin: 1.5rem auto 3rem;
   padding: 0 1rem;
+  flex: 1;
 }
 
 .tab-content {
